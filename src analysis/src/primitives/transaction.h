@@ -37,8 +37,8 @@ struct TxHash : public uint256 {
  */
 class COutPoint {
 private:
-    TxId txid;
-    uint32_t n;
+    TxId txid;//这里bch 与 btc 历史源码不同，将txid的 hash放在了外部
+    uint32_t n;//来自上一个交易的第n个out
 
 public:
     COutPoint() : txid(), n(-1) {}
@@ -88,6 +88,7 @@ public:
     CScript scriptSig;//用于解锁 锁定脚本 的签名（钥匙）
     uint32_t nSequence;//用途参照一些软分叉的资料描述
 
+    //Ques: nSequence 的用途需要进一步了解 https://www.8btc.com/article/118717
     /**
      * Setting nSequence to this value for every input in a transaction disables
      * nLockTime.
@@ -124,8 +125,15 @@ public:
      */
     static const int SEQUENCE_LOCKTIME_GRANULARITY = 9;
 
+    //默认构造一笔输入的时候是没有时间锁定的
     CTxIn() { nSequence = SEQUENCE_FINAL; }
 
+    /*
+        param 
+        prevoutIn      前一笔交易的输出
+        scriptSigIn    解锁脚本
+        nSequenceIn     
+    */
     explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn = CScript(),
                    uint32_t nSequenceIn = SEQUENCE_FINAL)
         : prevout(prevoutIn), scriptSig(scriptSigIn), nSequence(nSequenceIn) {}
@@ -135,6 +143,7 @@ public:
 
     ADD_SERIALIZE_METHODS;
 
+    //序列化操作码
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(prevout);
@@ -156,6 +165,9 @@ public:
  * An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
+/*
+    交易中的每笔输出定义
+*/
 class CTxOut {
 public:
     Amount nValue;
@@ -181,6 +193,11 @@ public:
 
     bool IsNull() const { return (nValue == Amount(-1)); }
 
+    /*
+        计算手续费 聪/千字节
+        一笔非隔离见证下的标准支出大小为 34 字节，输入的大小为 148 字节
+        这里说明了 隔离见证条件下的交易字节数明显少于非隔离见证条件下一条交易的总长度
+    */
     Amount GetDustThreshold(const CFeeRate &minRelayTxFee) const {
         /**
          * "Dust" is defined in terms of CTransaction::minRelayTxFee, which has
@@ -220,6 +237,8 @@ public:
 
 class CMutableTransaction;
 
+
+// 序列化格式
 /**
  * Basic transaction serialization format:
  * - int32_t nVersion
@@ -311,6 +330,7 @@ public:
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
+    //输入的优先级
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs,
                            unsigned int nTxSize = 0) const;
@@ -325,6 +345,7 @@ public:
      */
     unsigned int GetTotalSize() const;
 
+    //是否是base交易
     bool IsCoinBase() const {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
