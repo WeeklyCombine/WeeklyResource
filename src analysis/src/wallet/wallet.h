@@ -455,9 +455,11 @@ public:
     std::set<uint256> GetConflicts() const;
 };
 
+
+//支出结构
 class COutput {
 public:
-    const CWalletTx *tx;
+    const CWalletTx *tx;//当前钱包中正在生成的交易
     int i;
     int nDepth;
 

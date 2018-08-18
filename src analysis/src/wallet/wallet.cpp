@@ -2261,14 +2261,15 @@ Amount CWallet::GetLegacyBalance(const isminefilter &filter, int minDepth,
     return balance;
 }
 
-void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe,
+void CWallet::AvailableCoins(std::vector<COutput> &vCoins, 
+                             bool fOnlySafe,
                              const CCoinControl *coinControl,
                              bool fIncludeZeroValue) const {
     vCoins.clear();
 
     LOCK2(cs_main, cs_wallet);
-    for (std::map<uint256, CWalletTx>::const_iterator it = mapWallet.begin();
          it != mapWallet.end(); ++it) {
+    for (std::map<uint256, CWalletTx>::const_iterator it = mapWallet.begin();
         const uint256 &wtxid = it->first;
         const CWalletTx *pcoin = &(*it).second;
 
@@ -2673,19 +2674,19 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
                                 std::string &strFailReason,
                                 const CCoinControl *coinControl, //to do:暂时不明确
                                 bool sign) {//是否签名
-    Amount nValue(0);
+    Amount nValue(0);//用于保存即将转出的金额
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
-    //计算公共的额度
+    //计算总共支出的金额
     for (const auto &recipient : vecSend) {
         if (nValue < Amount(0) || recipient.nAmount < Amount(0)) {//UTXO可用额度异常
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
 
-        nValue += recipient.nAmount;
+        nValue += recipient.nAmount;//计算在队列中的支出总额度
 
-        if (recipient.fSubtractFeeFromAmount) {//to do: 不明状态
+        if (recipient.fSubtractFeeFromAmount) {//to do: 不明状态  判断该笔支出是否需要减去手续费?
             nSubtractFeeFromAmount++;
         }
     }
@@ -2774,7 +2775,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
                     }
                 }
 
-                if (txout.IsDust(dustRelayFee)) {
+                if (txout.IsDust(dustRelayFee)) {//判断是否是dust交易
                     if (recipient.fSubtractFeeFromAmount &&
                         nFeeRet > Amount(0)) {
                         if (txout.nValue < Amount(0)) {
@@ -2796,10 +2797,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
             }
 
             // Choose coins to use.
+            // 选择可以用于支付的入账 
             Amount nValueIn(0);
             setCoins.clear();
             if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins,
-                             nValueIn, coinControl)) {
+                             nValueIn, coinControl)) {//to do: 选择入账待详细解析
                 strFailReason = _("Insufficient funds");
                 return false;
             }
@@ -2885,6 +2887,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
 
                 // Never create dust outputs; if we would, just add the dust to
                 // the fee.
+                // 计算交易手续费
                 if (newTxOut.IsDust(dustRelayFee)) {
                     nChangePosInOut = -1;
                     nFeeRet += nChange;
@@ -2911,12 +2914,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
             //
             // Note how the sequence number is set to non-maxint so that the
             // nLockTime set above actually works.
+            // 
             for (const auto &coin : setCoins) {
                 txNew.vin.push_back(
                     CTxIn(coin.first->GetId(), coin.second, CScript(),
                           std::numeric_limits<uint32_t>::max() - 1));
             }
 
+            //虚拟签名
             // Fill in dummy signatures for fee calculation.
             if (!DummySignTx(txNew, setCoins)) {
                 strFailReason = _("Signing transaction failed");
@@ -2941,7 +2946,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
             }
 
             Amount nFeeNeeded =
-                GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
+                GetMinimumFee(nBytes, currentConfirmationTarget, mempool);//最小手续费 
             if (coinControl && nFeeNeeded > Amount(0) &&
                 coinControl->nMinimumTotalFee > nFeeNeeded) {
                 nFeeNeeded = coinControl->nMinimumTotalFee;
@@ -2954,12 +2959,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
             // If we made it here and we aren't even able to meet the relay fee
             // on the next pass, give up because we must be at the maximum
             // allowed fee.
-            Amount minFee = GetConfig().GetMinFeePerKB().GetFee(nBytes);
-            if (nFeeNeeded < minFee) {
+            Amount minFee = GetConfig().GetMinFeePerKB().GetFee(nBytes);//计算标准最小手续费
+            if (nFeeNeeded < minFee) {//如果无法满足标准最小手续费，需要重组交易
                 strFailReason = _("Transaction too large for fee policy");
                 return false;
             }
 
+            //
             if (nFeeRet >= nFeeNeeded) {
                 // Reduce fee to only the needed amount if we have change output
                 // to increase. This prevents potential overpayment in fees if
@@ -3004,6 +3010,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
             continue;
         }
 
+        //是否已签名
         if (sign) {
             SigHashType sigHashType = SigHashType().withForkId();
 
@@ -3032,7 +3039,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
 
         // Embed the constructed transaction data in wtxNew.
         wtxNew.SetTx(MakeTransactionRef(std::move(txNew)));
-
+        //如果现在打包的交易的大小超过限制，需要重新打包交易
         // Limit size.
         if (CTransaction(wtxNew).GetTotalSize() >= MAX_STANDARD_TX_SIZE) {
             strFailReason = _("Transaction too large");
