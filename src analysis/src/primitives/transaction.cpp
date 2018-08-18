@@ -72,6 +72,7 @@ CTransaction::CTransaction(CMutableTransaction &&tx)
     : nVersion(tx.nVersion), vin(std::move(tx.vin)), vout(std::move(tx.vout)),
       nLockTime(tx.nLockTime), hash(ComputeHash()) {}
 
+//计算单笔交易输出总额
 Amount CTransaction::GetValueOut() const {
     Amount nValueOut(0);
     for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end();
@@ -84,6 +85,7 @@ Amount CTransaction::GetValueOut() const {
     return nValueOut;
 }
 
+//计算当前 每笔 UTXO 的优先级
 double CTransaction::ComputePriority(double dPriorityInputs,
                                      unsigned int nTxSize) const {
     nTxSize = CalculateModifiedSize(nTxSize);

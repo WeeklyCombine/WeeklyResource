@@ -150,6 +150,7 @@ public:
     StringMap destdata;
 };
 
+//UTXO 每笔UTXO的构成
 struct CRecipient {
     CScript scriptPubKey;
     Amount nAmount;
@@ -403,6 +404,7 @@ public:
     }
 
     //! make sure balances are recalculated
+    //to do: 弄清楚钱包中 credit 的含义
     void MarkDirty() {
         fCreditCached = false;
         fAvailableCreditCached = false;
@@ -1146,6 +1148,7 @@ public:
 };
 
 /** A key allocated from the key pool. */
+//to do: 私钥池？钱包相关 
 class CReserveKey final : public CReserveScript {
 protected:
     CWallet *pwallet;

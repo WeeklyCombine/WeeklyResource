@@ -2664,27 +2664,33 @@ bool CWallet::FundTransaction(CMutableTransaction &tx, Amount &nFeeRet,
     return true;
 }
 
-bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,
-                                CWalletTx &wtxNew, CReserveKey &reservekey,
-                                Amount &nFeeRet, int &nChangePosInOut,
+//创建交易
+bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
+                                CWalletTx &wtxNew, //缓存交易池
+                                CReserveKey &reservekey,//私钥池中的私钥
+                                Amount &nFeeRet, //Amout 一个计数结构
+                                int &nChangePosInOut,
                                 std::string &strFailReason,
-                                const CCoinControl *coinControl, bool sign) {
+                                const CCoinControl *coinControl, //to do:暂时不明确
+                                bool sign) {//是否签名
     Amount nValue(0);
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
+    //计算公共的额度
     for (const auto &recipient : vecSend) {
-        if (nValue < Amount(0) || recipient.nAmount < Amount(0)) {
+        if (nValue < Amount(0) || recipient.nAmount < Amount(0)) {//UTXO可用额度异常
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
 
         nValue += recipient.nAmount;
 
-        if (recipient.fSubtractFeeFromAmount) {
+        if (recipient.fSubtractFeeFromAmount) {//to do: 不明状态
             nSubtractFeeFromAmount++;
         }
     }
 
+    //？why not check it first
     if (vecSend.empty()) {
         strFailReason = _("Transaction must have at least one recipient");
         return false;
@@ -2694,7 +2700,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    // Discourage fee sniping.
+
+    //https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2013-February/002185.html
+    //以上链接能够帮助理解一下 fee sniping 的问题
+    // Discourage fee sniping. 
     //
     // For a large miner the value of the transactions in the best block and the
     // mempool can exceed the cost of deliberately attempting to mine two blocks
