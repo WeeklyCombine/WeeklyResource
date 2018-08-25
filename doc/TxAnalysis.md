@@ -116,7 +116,7 @@ Transaction
 
 创建交易过程中需要做的事情
 
-![](https://github.com/WeeklyCombine/WeeklyResource/blob/master/doc/resources/CreateTransaction_1.png)
+![](https://github.com/WeeklyCombine/WeeklyResource/blob/master/doc/resources/CreateTransaction_1.png "创建交易")
 
 instruction：
  * 计算全部支出的金额
@@ -133,74 +133,6 @@ instruction：
 
  ![](https://github.com/WeeklyCombine/WeeklyResource/blob/master/doc/resources/createTransaction.jpeg "创建交易流程")
 
-
-code
-bool CWallet::FundTransaction(CMutableTransaction &tx, Amount &nFeeRet,
-                              bool overrideEstimatedFeeRate,
-                              const CFeeRate &specificFeeRate,
-                              int &nChangePosInOut, std::string &strFailReason,
-                              bool includeWatching, bool lockUnspents,
-                              const std::set<int> &setSubtractFeeFromOutputs,
-                              bool keepReserveKey,
-                              const CTxDestination &destChange) {
-    std::vector<CRecipient> vecSend;
-
-    // Turn the txout set into a CRecipient vector.
-    for (size_t idx = 0; idx < tx.vout.size(); idx++) {
-        const CTxOut &txOut = tx.vout[idx];
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue,
-                                setSubtractFeeFromOutputs.count(idx) == 1};
-        vecSend.push_back(recipient);
-    }
-
-    CCoinControl coinControl;
-    coinControl.destChange = destChange;
-    coinControl.fAllowOtherInputs = true;
-    coinControl.fAllowWatchOnly = includeWatching;
-    coinControl.fOverrideFeeRate = overrideEstimatedFeeRate;
-    coinControl.nFeeRate = specificFeeRate;
-
-    for (const CTxIn &txin : tx.vin) {
-        coinControl.Select(txin.prevout);
-    }
-
-    CReserveKey reservekey(this);
-    CWalletTx wtx;
-    if (!CreateTransaction(vecSend, wtx, reservekey, nFeeRet, nChangePosInOut,
-                           strFailReason, &coinControl, false)) {
-        return false;
-    }
-
-    if (nChangePosInOut != -1) {
-        tx.vout.insert(tx.vout.begin() + nChangePosInOut,
-                       wtx.tx->vout[nChangePosInOut]);
-    }
-
-    // Copy output sizes from new transaction; they may have had the fee
-    // subtracted from them.
-    for (size_t idx = 0; idx < tx.vout.size(); idx++) {
-        tx.vout[idx].nValue = wtx.tx->vout[idx].nValue;
-    }
-
-    // Add new txins (keeping original txin scriptSig/order)
-    for (const CTxIn &txin : wtx.tx->vin) {
-        if (!coinControl.IsSelected(txin.prevout)) {
-            tx.vin.push_back(txin);
-
-            if (lockUnspents) {
-                LOCK2(cs_main, cs_wallet);
-                LockCoin(txin.prevout);
-            }
-        }
-    }
-
-    // Optionally keep the change output key.
-    if (keepReserveKey) {
-        reservekey.KeepKey();
-    }
-
-    return true;
-}
 
     //创建交易
     bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//接收转账的对象队列
