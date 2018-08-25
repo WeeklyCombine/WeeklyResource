@@ -13,6 +13,42 @@
     };
 
 
+TxOutput
+
+    class CTxOut {
+        Amount nValue;
+        CScript scriptPubKey;
+    /*
+        计算手续费 聪/千字节
+        一笔非隔离见证下的标准支出大小为 34 字节，输入的大小为 148 字节
+        这里说明了 隔离见证条件下的交易字节数明显少于非隔离见证条件下一条交易的总长度
+    */
+    Amount GetDustThreshold(const CFeeRate &minRelayTxFee) const {
+        /**
+         * "Dust" is defined in terms of CTransaction::minRelayTxFee, which has
+         * units satoshis-per-kilobyte. If you'd pay more than 1/3 in fees to
+         * spend something, then we consider it dust. A typical spendable
+         * non-segwit txout is 34 bytes big, and will need a CTxIn of at least
+         * 148 bytes to spend: so dust is a spendable txout less than
+         * 546*minRelayTxFee/1000 (in satoshis). A typical spendable segwit
+         * txout is 31 bytes big, and will need a CTxIn of at least 67 bytes to
+         * spend: so dust is a spendable txout less than 294*minRelayTxFee/1000
+         * (in satoshis).
+         */
+        if (scriptPubKey.IsUnspendable()) return Amount(0);
+
+        size_t nSize = GetSerializeSize(*this, SER_DISK, 0);
+
+        // the 148 mentioned above
+        nSize += (32 + 4 + 1 + 107 + 4);
+
+        return 3 * minRelayTxFee.GetFee(nSize);
+    }
+};
+
+
+
+
 TxInput
 
     /*
@@ -64,7 +100,7 @@ TxInput
 
         /*
             param 
-            prevoutIn      前一笔交易的输出
+            prevoutIn      前一笔交易的输出 
             scriptSigIn    解锁脚本
             nSequenceIn     
         */
@@ -77,3 +113,16 @@ TxInput
               CScript scriptSigIn = CScript(),
               uint32_t nSequenceIn = SEQUENCE_FINAL);
     };
+
+
+Transaction
+
+交易的生成-- createTransaction
+
+ * 计算全部支出的金额
+ * 从钱包中获取可用的UTXO
+ * 计算手续费 
+   * 计算每笔支出减去分摊的手续费后，是否是dust交易
+   * 如果交易额足够大，添加到支出队列中
+ * 从UTXO池中选择用于支付的支出
+ * 计算credit的币龄，并用于计算优先级

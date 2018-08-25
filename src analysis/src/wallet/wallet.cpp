@@ -2667,7 +2667,7 @@ bool CWallet::FundTransaction(CMutableTransaction &tx, Amount &nFeeRet,
 
 //创建交易
 bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
-                                CWalletTx &wtxNew, //缓存交易池
+                                CWalletTx &wtxNew, 
                                 CReserveKey &reservekey,//私钥池中的私钥
                                 Amount &nFeeRet, //Amout 一个计数结构
                                 int &nChangePosInOut,
@@ -2744,7 +2744,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
         std::vector<COutput> vAvailableCoins;
         AvailableCoins(vAvailableCoins, true, coinControl);
 
-        nFeeRet = Amount(0);
+        nFeeRet = Amount(0);//手续费
         // Start with no fee and loop until there is enough fee.
         while (true) {
             nChangePosInOut = nChangePosRequest;
@@ -2819,7 +2819,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient> &vecSend,//UTXO池
                 dPriority += (double)nCredit.GetSatoshis() * age;
             }
 
-            const Amount nChange = nValueIn - nValueToSelect;
+            const Amount nChange = nValueIn - nValueToSelect;//找零
             if (nChange > Amount(0)) {
                 // Fill a vout to ourself.
                 // TODO: pass in scriptChange instead of reservekey so change
