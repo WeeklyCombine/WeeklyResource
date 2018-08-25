@@ -62,37 +62,13 @@ TxInput
 
         //Ques: nSequence 的用途需要进一步了解 
         https://www.8btc.com/article/118717
-        /*若交易中每笔输入的nSequence 都是 0xffffffff，那么nlockTime将无效*/
+        /*若交易中每笔输入的nSequence 都是 0xffffffff，那么nlockTime将无*/
         static const uint32_t SEQUENCE_FINAL = 0xffffffff;
         /*这里的规则与Bitcoin的文档中描述不一致，待查看BIP 68*/
-        /* Below flags apply in the context of BIP 68*/
-        /**
-        * If this flag set, CTxIn::nSequence is NOT interpreted as a relative
-        * lock-time.
-        */
+
         static const uint32_t SEQUENCE_LOCKTIME_DISABLE_FLAG = (1 << 31);
-
-        /**
-        * If CTxIn::nSequence encodes a relative lock-time and this flag is set,
-        * the relative lock-time has units of 512 seconds, otherwise it specifies
-        * blocks with a granularity of 1.
-        */
         static const uint32_t SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22);
-
-        /**
-        * If CTxIn::nSequence encodes a relative lock-time, this mask is applied to
-        * extract that lock-time from the sequence field.
-        */
         static const uint32_t SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
-
-        /**
-        * In order to use the same number of bits to encode roughly the same
-        * wall-clock duration, and because blocks are naturally limited to occur
-        * every 600s on average, the minimum granularity for time-based relative
-        * lock-time is fixed at 512 seconds. Converting from CTxIn::nSequence to
-        * seconds is performed by multiplying by 512 = 2^9, or equivalently
-        * shifting up by 9 bits.
-        */
         static const int SEQUENCE_LOCKTIME_GRANULARITY = 9;
 
         //默认构造一笔输入的时候是没有时间锁定的
@@ -119,6 +95,7 @@ Transaction
 
 交易的生成-- createTransaction
 
+创建交易的流程：
  * 计算全部支出的金额
  * 从钱包中获取可用的UTXO
  * 计算手续费 
@@ -126,3 +103,7 @@ Transaction
    * 如果交易额足够大，添加到支出队列中
  * 从UTXO池中选择用于支付的支出
  * 计算credit的币龄，并用于计算优先级
+ * 复用spender的签名脚本，并构建一笔找零
+ * 计算添加找零之后的手续费，并可以对找零的数量进行调整以满足手续费的要求，如果无法满足则需要清空当前已构建的交易的输入输出，重新构建交易
+ * 生成spender的sigScript配合公钥进行签名验证
+ * 检查生成的交易的大小 
